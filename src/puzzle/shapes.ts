@@ -25,8 +25,9 @@
  * moving smoothly to `{ r: 1, theta: -0.872665, phi: 0.872665 }`,
  * ending at time `2 / 24 * LOOP_DURATION`.
  *
- * each shape has "center point" calculated at runtime.
+ * each shape has an "center point" calculated at runtime.
  * the coordinate origin and the "center point" determines the "center ray" of the shape.
+ * the center ray is invisible by default and there will be an option to adjust its visibility.
  */
 
 type Vertex = { r: number; theta: number; phi: number };
