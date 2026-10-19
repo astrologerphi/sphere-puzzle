@@ -30,34 +30,34 @@
  * the center ray is invisible by default and there will be an option to adjust its visibility.
  */
 
-type Vertex = { r: number; theta: number; phi: number };
+type Vertex = { theta: number; phi: number };
 type CenterRay = { theta: number; phi: number };
-type Shape = Record<number, Vertex> & { center: CenterRay };
+type Shape = Record<number, Vertex> & { r: number };
 
 export const LOOP_DURATION = 3000;
 export const DEFAULT_SHAPES: Record<string, Shape> = {
     shape1: {
-        0: { r: 1, theta: -0.174533, phi: 0.872665 },
-        2: { r: 1, theta: -0.872665, phi: 0.872665 },
-        3: { r: 1, theta: -0.872665, phi: -2.199115 },
-        4: { r: 1, theta: 0, phi: -2.199115 },
-        5: { r: 1, theta: -0.698132, phi: 0.872665 },
-        8: { r: 1, theta: -0.174533, phi: 0.872665 },
-        9: { r: 1, theta: -0.872665, phi: 0.872665 },
-        12: { r: 1, theta: -0.872665, phi: -2.199115 },
-        23: { r: 1, theta: 0, phi: -2.199115 },
-        center: { theta: 0, phi: 0 },
+        r: 1,
+        0: { theta: -0.174533, phi: 0.872665 },
+        2: { theta: -0.872665, phi: 0.872665 },
+        3: { theta: -0.872665, phi: -2.199115 },
+        4: { theta: 0, phi: -2.199115 },
+        5: { theta: -0.698132, phi: 0.872665 },
+        8: { theta: -0.174533, phi: 0.872665 },
+        9: { theta: -0.872665, phi: 0.872665 },
+        12: { theta: -0.872665, phi: -2.199115 },
+        23: { theta: 0, phi: -2.199115 },
     },
     shape2: {
-        0: { r: 1, theta: -0.174533, phi: 0.872665 },
-        4: { r: 1, theta: -0.872665, phi: 0.872665 },
-        8: { r: 1, theta: -0.872665, phi: -2.199115 },
-        12: { r: 1, theta: 0, phi: -2.199115 },
-        15: { r: 1, theta: 0, phi: -2.199115 },
-        21: { r: 1, theta: -0.698132, phi: 0.872665 },
-        15.08: { r: 1, theta: -0.750492, phi: 2.792527 },
-        15.33: { r: 1, theta: -0.750492, phi: 2.792527 },
-        22.5: { r: 1, theta: -0.174533, phi: 0.872665 },
-        center: { theta: 0, phi: 0 },
+        r: 1,
+        0: { theta: -0.174533, phi: 0.872665 },
+        4: { theta: -0.872665, phi: 0.872665 },
+        8: { theta: -0.872665, phi: -2.199115 },
+        12: { theta: 0, phi: -2.199115 },
+        15: { theta: 0, phi: -2.199115 },
+        21: { theta: -0.698132, phi: 0.872665 },
+        15.08: { theta: -0.750492, phi: 2.792527 },
+        15.33: { theta: -0.750492, phi: 2.792527 },
+        22.5: { theta: -0.174533, phi: 0.872665 },
     },
 };
