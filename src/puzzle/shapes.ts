@@ -30,9 +30,9 @@
  * the center ray is invisible by default and there will be an option to adjust its visibility.
  */
 
-type Vertex = { theta: number; phi: number };
-type CenterRay = { theta: number; phi: number };
-type Shape = Record<number, Vertex> & { r: number };
+export type Vertex = { theta: number; phi: number };
+export type CenterRay = { theta: number; phi: number };
+export type Shape = Record<number, Vertex> & { r: number };
 
 export const LOOP_DURATION = 3000;
 export const DEFAULT_SHAPES: Record<string, Shape> = {

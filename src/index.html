@@ -4,15 +4,191 @@
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Sphere Puzzle</title>
+        <link rel="icon" href="./favicon.ico" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link
-            href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap"
+            href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap"
             rel="stylesheet"
         />
         <link rel="stylesheet" href="./styles/main.css" />
     </head>
     <body>
+        <div class="app">
+            <aside class="shape-panel" aria-label="Shapes">
+                <header class="brand">
+                    <div class="brand__orb" aria-hidden="true"></div>
+                    <div class="brand__text">
+                        <h1 class="brand__title">Sphere Puzzle</h1>
+                        <p class="brand__subtitle">a celestial tangram</p>
+                    </div>
+                </header>
+
+                <div class="panel-toolbar">
+                    <h2 class="panel-toolbar__title">
+                        Shapes
+                        <span class="count-badge" id="shape-count">0</span>
+                    </h2>
+                    <button class="btn btn--primary" id="add-shape-btn" type="button">
+                        <span class="btn__icon" aria-hidden="true">+</span>
+                        Add
+                    </button>
+                </div>
+
+                <ul class="shape-list" id="shape-list" role="listbox" aria-label="Shape list"></ul>
+
+                <div class="empty-state" id="empty-state" hidden>
+                    <div class="empty-state__glyph" aria-hidden="true"></div>
+                    <p class="empty-state__title">The sky is empty</p>
+                    <p class="empty-state__text">Add a shape to place a new piece on the sphere.</p>
+                </div>
+
+                <footer class="panel-footer">
+                    <label class="switch">
+                        <input class="switch__input" type="checkbox" id="center-ray-toggle" />
+                        <span class="switch__track" aria-hidden="true"><span class="switch__thumb"></span></span>
+                        <span class="switch__label">Show center rays</span>
+                    </label>
+                    <button class="btn btn--ghost btn--small" id="reset-view-btn" type="button">Reset view</button>
+                </footer>
+            </aside>
+
+            <main class="sphere-panel" id="sphere-panel" data-mode="scene" data-phase="day">
+                <canvas class="scene-canvas" id="scene-canvas" tabindex="-1"></canvas>
+
+                <div class="hud hud--top-left clock" aria-live="off">
+                    <span class="clock__icon" aria-hidden="true"></span>
+                    <span class="clock__time" id="clock-time">00:00</span>
+                    <span class="clock__phase" id="clock-phase">day</span>
+                </div>
+
+                <div class="hud hud--top-right legend">
+                    <span class="legend__item legend__item--x">X</span>
+                    <span class="legend__item legend__item--y">Y</span>
+                    <span class="legend__item legend__item--z">Z</span>
+                    <span class="legend__divider" aria-hidden="true"></span>
+                    <span class="legend__item legend__item--day">day</span>
+                    <span class="legend__item legend__item--night">night</span>
+                </div>
+
+                <section class="hud hud--bottom-left readout" id="readout" hidden>
+                    <p class="readout__label">Selected</p>
+                    <p class="readout__name" id="readout-name"></p>
+                    <dl class="readout__grid">
+                        <dt>θ</dt>
+                        <dd id="readout-theta">0°</dd>
+                        <dt>φ</dt>
+                        <dd id="readout-phi">0°</dd>
+                        <dt>r</dt>
+                        <dd id="readout-r">1.00</dd>
+                    </dl>
+                    <progress
+                        class="readout__meter"
+                        id="readout-meter"
+                        max="1.5"
+                        value="0.5"
+                        aria-label="Radial distance"
+                    ></progress>
+                </section>
+
+                <div class="hud hud--bottom hints">
+                    <ul class="hints__group hints__group--scene">
+                        <li><kbd>Drag</kbd> orbit</li>
+                        <li><kbd>Wheel</kbd> zoom</li>
+                        <li><kbd>Click</kbd> a piece to select</li>
+                    </ul>
+                    <ul class="hints__group hints__group--piece">
+                        <li><kbd>←</kbd><kbd>→</kbd> longitude</li>
+                        <li><kbd>↑</kbd><kbd>↓</kbd> latitude</li>
+                        <li><kbd>Shift</kbd>+<kbd>←</kbd><kbd>→</kbd> rotate</li>
+                        <li><kbd>Wheel</kbd> radius</li>
+                        <li><kbd>Drag</kbd> orbit</li>
+                        <li><kbd>Esc</kbd> deselect</li>
+                    </ul>
+                </div>
+
+                <div class="gpu-error" id="gpu-error" hidden>
+                    <div class="gpu-error__card">
+                        <p class="gpu-error__title">WebGPU is not available</p>
+                        <p class="gpu-error__text">
+                            Sphere Puzzle renders with WebGPU. Please open it in a recent Chrome, Edge or Safari with
+                            WebGPU enabled.
+                        </p>
+                        <code class="gpu-error__detail" id="gpu-error-detail"></code>
+                    </div>
+                </div>
+
+                <div class="toast" id="toast" role="status" aria-live="polite"></div>
+            </main>
+        </div>
+
+        <template id="shape-item-template">
+            <li class="shape-card" role="option" tabindex="0" aria-selected="false">
+                <canvas class="shape-card__preview" width="112" height="112" aria-hidden="true"></canvas>
+                <div class="shape-card__body">
+                    <span class="shape-card__name"></span>
+                    <span class="shape-card__meta">
+                        <span class="chip" data-field="vertices"></span>
+                        <span class="chip" data-field="radius"></span>
+                    </span>
+                </div>
+                <button class="shape-card__remove" type="button" aria-label="Remove shape" title="Remove shape">
+                    <span aria-hidden="true">×</span>
+                </button>
+            </li>
+        </template>
+
+        <dialog class="dialog" id="add-dialog" aria-labelledby="add-dialog-title">
+            <form class="dialog__form" id="add-form" method="dialog" novalidate>
+                <header class="dialog__header">
+                    <h2 class="dialog__title" id="add-dialog-title">Add a shape</h2>
+                    <p class="dialog__subtitle">Describe a new piece as JSON — vertices keyed by their time.</p>
+                </header>
+
+                <label class="field">
+                    <span class="field__label">Name</span>
+                    <input
+                        class="field__input"
+                        id="shape-name-input"
+                        type="text"
+                        autocomplete="off"
+                        spellcheck="false"
+                    />
+                </label>
+
+                <label class="field">
+                    <span class="field__label">Shape JSON</span>
+                    <textarea
+                        class="field__input field__input--code"
+                        id="shape-json-input"
+                        rows="12"
+                        spellcheck="false"
+                        placeholder='{ "r": 1, "0": { "theta": 0.5, "phi": 0 }, "12": { "theta": 0.9, "phi": 1.2 } }'
+                    ></textarea>
+                </label>
+
+                <ul class="rules">
+                    <li><span class="rules__key">r</span> radial distance, clamped to 0.5 – 2 (defaults to 1)</li>
+                    <li>
+                        <span class="rules__key">time</span> keys between 0 and 24 — a <b>0</b> and a <b>12</b> are
+                        required
+                    </li>
+                    <li><span class="rules__key">θ φ</span> polar and azimuthal angles in radians</li>
+                </ul>
+
+                <p class="dialog__error" id="add-error" role="alert" hidden></p>
+
+                <footer class="dialog__actions">
+                    <button class="btn btn--ghost btn--small" id="insert-example-btn" type="button">
+                        Insert example
+                    </button>
+                    <span class="dialog__spacer"></span>
+                    <button class="btn btn--ghost" id="add-cancel-btn" type="button">Cancel</button>
+                    <button class="btn btn--primary" id="add-ok-btn" type="submit">OK</button>
+                </footer>
+            </form>
+        </dialog>
+
         <script type="module" src="./main.js"></script>
     </body>
 </html>
