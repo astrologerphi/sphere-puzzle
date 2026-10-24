@@ -98,3 +98,55 @@ export class SpriteBatch extends InstanceBatch {
         d[o + 11] = 0;
     }
 }
+
+/**
+ * Closed polylines drawn as one continuous mitered strip each (see curve.wgsl).
+ * Points: 8 floats (xyz, width px, rgba). Curves: 4 u32 (first point, point count, 0, 0).
+ */
+export class CurveBatch {
+    static readonly POINT_FLOATS = 8;
+    points = new Float32Array(2048 * CurveBatch.POINT_FLOATS);
+    curves = new Uint32Array(64 * 4);
+    pointCount = 0;
+    count = 0;
+
+    clear(): void {
+        this.pointCount = 0;
+        this.count = 0;
+    }
+
+    pushLoop(points: readonly Vec3[], width: number, colorAt: (index: number) => RGBA): void {
+        if (points.length < 2) return;
+        const needed = (this.pointCount + points.length) * CurveBatch.POINT_FLOATS;
+        if (needed > this.points.length) {
+            const grown = new Float32Array(Math.max(needed, this.points.length * 2));
+            grown.set(this.points);
+            this.points = grown;
+        }
+        if ((this.count + 1) * 4 > this.curves.length) {
+            const grown = new Uint32Array(this.curves.length * 2);
+            grown.set(this.curves);
+            this.curves = grown;
+        }
+        const c = this.count * 4;
+        this.curves[c] = this.pointCount;
+        this.curves[c + 1] = points.length;
+        this.curves[c + 2] = 0;
+        this.curves[c + 3] = 0;
+        points.forEach((p, i) => {
+            const o = (this.pointCount + i) * CurveBatch.POINT_FLOATS;
+            this.points[o] = p[0];
+            this.points[o + 1] = p[1];
+            this.points[o + 2] = p[2];
+            this.points[o + 3] = width;
+            this.points.set(colorAt(i), o + 4);
+        });
+        this.pointCount += points.length;
+        this.count++;
+    }
+
+    /** Point count of curve `index`, used for its strip vertex count. */
+    pointsIn(index: number): number {
+        return this.curves[index * 4 + 1] ?? 0;
+    }
+}

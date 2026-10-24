@@ -1,7 +1,7 @@
 import { vec3, type Vec3 } from '../core/math.js';
 import type { Piece } from '../puzzle/piece.js';
 import { LINE_LIFT } from './renderer.js';
-import { LineBatch, SpriteBatch, SpriteKind, type RGBA } from './batches.js';
+import { CurveBatch, LineBatch, SpriteBatch, SpriteKind, type RGBA } from './batches.js';
 
 const DAY: RGBA = [1.0, 0.8, 0.26, 1];
 const NIGHT: RGBA = [0.34, 0.58, 1.0, 1];
@@ -32,9 +32,16 @@ export interface SceneOptions {
     dpr: number;
 }
 
-/** Fill the per-frame line and sprite batches: axes, piece outlines, stars and center rays. */
-export function buildScene(pieces: readonly Piece[], lines: LineBatch, sprites: SpriteBatch, o: SceneOptions): void {
+/** Fill the per-frame batches: axes, piece outlines, stars and center rays. */
+export function buildScene(
+    pieces: readonly Piece[],
+    lines: LineBatch,
+    curves: CurveBatch,
+    sprites: SpriteBatch,
+    o: SceneOptions
+): void {
     lines.clear();
+    curves.clear();
     sprites.clear();
     const px = (n: number) => n * o.dpr;
 
@@ -63,14 +70,12 @@ export function buildScene(pieces: readonly Piece[], lines: LineBatch, sprites: 
         const selected = piece.id === o.selectedId;
         const radius = piece.r * LINE_LIFT;
         const world = piece.path.map(p => piece.toWorld(p, radius));
-        const n = world.length;
-        // same stroke as the coordinate axes; the selected piece is just brighter
-        const alpha = selected ? 1 : 0.7;
-        const glowStrength = selected ? 0.9 : 0.6;
-        for (let i = 0; i < n; i++) {
-            const color = withAlpha(piece.pathDay[i] ? DAY : NIGHT, alpha);
-            lines.push(world[i]!, world[(i + 1) % n]!, { width: px(1.8), glow: px(6), colorA: color, glowStrength });
-        }
+        // one continuous curve per outline; the selected piece is just brighter
+        const shade = selected ? 1 : 0.68;
+        curves.pushLoop(world, px(2), i => {
+            const c = piece.pathDay[i] ? DAY : NIGHT;
+            return [c[0] * shade, c[1] * shade, c[2] * shade, 1];
+        });
 
         // the star and its fading trail
         for (let k = TRAIL_SAMPLES; k >= 1; k--) {
