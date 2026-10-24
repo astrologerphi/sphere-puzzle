@@ -5,6 +5,12 @@ export const MAX_DISTANCE = 14;
 const MAX_PITCH = 88 * DEG;
 const ROTATE_SPEED = 0.0065;
 
+export interface CameraView {
+    yaw: number;
+    pitch: number;
+    distance: number;
+}
+
 /** Orbit camera around the origin with smoothing and drag inertia. */
 export class OrbitCamera {
     readonly fovY = 38 * DEG;
@@ -54,6 +60,20 @@ export class OrbitCamera {
 
     zoom(deltaY: number): void {
         this.targetDistance = clamp(this.targetDistance * Math.exp(deltaY * 0.0012), MIN_DISTANCE, MAX_DISTANCE);
+    }
+
+    /** Target yaw / pitch / distance, for persisting the view. */
+    get viewState(): CameraView {
+        return { yaw: this.targetYaw, pitch: this.targetPitch, distance: this.targetDistance };
+    }
+
+    /** Jump straight to a saved view. */
+    restoreView(view: CameraView): void {
+        this.yaw = this.targetYaw = view.yaw;
+        this.pitch = this.targetPitch = clamp(view.pitch, -MAX_PITCH, MAX_PITCH);
+        this.distance = this.targetDistance = clamp(view.distance, MIN_DISTANCE, MAX_DISTANCE);
+        this.velocityYaw = this.velocityPitch = 0;
+        this.update(0);
     }
 
     reset(): void {
