@@ -40,6 +40,5 @@
         "moduleDetection": "force",
         "skipLibCheck": true
     },
-    "include": ["build.ts"]
+    "include": ["build.ts", "src"]
 }
-

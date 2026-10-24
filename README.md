@@ -1,1 +1,40 @@
 # Sphere Puzzle
+
+A WebGPU puzzle: pieces of a sphere float over a glass "base sphere" that has latitude/longitude lines and X/Y/Z axes.
+
+## Run
+
+```sh
+npm install
+npm run build      # bundles src/ into dist/
+npx http-server dist
+```
+
+You need a browser with WebGPU (recent Chrome, Edge or Safari).
+
+## Shapes
+
+The left panel loads the default shapes from `src/puzzle/shapes.ts`. Click **Add**, paste a shape as JSON and press **OK**. Before a shape is added:
+
+- `r` (radial distance) is clamped to `0.5 – 2`, and defaults to `1` if it is missing.
+- Vertices are keyed by time (`0 – 24`). A vertex at time `0` and one at time `12` are required.
+
+## Controls
+
+| Input                 | No selection    | Piece selected             |
+| --------------------- | --------------- | -------------------------- |
+| Left mouse drag       | orbit the scene | orbit the scene            |
+| Mouse wheel           | zoom            | change the radial distance |
+| ← / →                 |                 | move along the longitude   |
+| ↑ / ↓                 |                 | move along the latitude    |
+| Shift + ← / →         |                 | rotate the piece           |
+| Click a piece or card | select          | select / deselect          |
+| Esc / Delete          |                 | deselect / remove          |
+
+## Layout
+
+- `src/index.html`: all markup
+- `src/styles/`: all CSS
+- `src/shaders/`: all WGSL shaders
+- `src/puzzle/`: shapes, validation, state and the shape-list UI
+- `src/render/`: camera, WebGPU renderer and per-frame scene building
