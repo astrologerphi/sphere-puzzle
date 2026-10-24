@@ -2,11 +2,12 @@ import { mat4, type Vec3 } from '../core/math.js';
 import type { Piece } from '../puzzle/piece.js';
 import backgroundWgsl from '../shaders/background.wgsl';
 import commonWgsl from '../shaders/common.wgsl';
+import curveWgsl from '../shaders/curve.wgsl';
 import globeWgsl from '../shaders/globe.wgsl';
 import lineWgsl from '../shaders/line.wgsl';
 import pieceWgsl from '../shaders/piece.wgsl';
 import spriteWgsl from '../shaders/sprite.wgsl';
-import { LineBatch, SpriteBatch } from './batches.js';
+import { CurveBatch, LineBatch, SpriteBatch } from './batches.js';
 import type { OrbitCamera } from './camera.js';
 
 const SAMPLE_COUNT = 4;
@@ -36,6 +37,7 @@ export interface FrameState {
     pieces: readonly Piece[];
     selectedId: number | null;
     lines: LineBatch;
+    curves: CurveBatch;
     sprites: SpriteBatch;
     seconds: number;
     loopHours: number;
@@ -48,17 +50,22 @@ export class Renderer {
     private readonly cameraBuffer: GPUBuffer;
     private readonly cameraBindGroup: GPUBindGroup;
     private readonly pieceLayout: GPUBindGroupLayout;
+    private readonly curveLayout: GPUBindGroupLayout;
     private readonly pipelines: {
         background: GPURenderPipeline;
         globeBack: GPURenderPipeline;
         globeFront: GPURenderPipeline;
         piece: GPURenderPipeline;
         line: GPURenderPipeline;
+        curve: GPURenderPipeline;
         sprite: GPURenderPipeline;
     };
     private readonly pieceResources = new Map<number, PieceResources>();
     private lineBuffer: GPUBuffer | null = null;
     private spriteBuffer: GPUBuffer | null = null;
+    private curvePointBuffer: GPUBuffer | null = null;
+    private curveRangeBuffer: GPUBuffer | null = null;
+    private curveBindGroup: GPUBindGroup | null = null;
     private colorTarget: GPUTexture | null = null;
     private depthTarget: GPUTexture | null = null;
     private readonly cameraData = new Float32Array(CAMERA_BYTES / 4);
@@ -99,6 +106,14 @@ export class Renderer {
             ],
         });
 
+        this.curveLayout = device.createBindGroupLayout({
+            label: 'curve',
+            entries: [
+                { binding: 0, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } },
+                { binding: 1, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } },
+            ],
+        });
+
         this.cameraBuffer = device.createBuffer({
             label: 'camera',
             size: CAMERA_BYTES,
@@ -115,10 +130,12 @@ export class Renderer {
         const globeModule = module('globe', globeWgsl);
         const pieceModule = module('piece', pieceWgsl);
         const lineModule = module('line', lineWgsl);
+        const curveModule = module('curve', curveWgsl);
         const spriteModule = module('sprite', spriteWgsl);
 
         const cameraOnly = device.createPipelineLayout({ bindGroupLayouts: [cameraLayout] });
         const withPiece = device.createPipelineLayout({ bindGroupLayouts: [cameraLayout, this.pieceLayout] });
+        const withCurves = device.createPipelineLayout({ bindGroupLayouts: [cameraLayout, this.curveLayout] });
         const multisample: GPUMultisampleState = { count: SAMPLE_COUNT };
 
         const depth = (write: boolean, compare: GPUCompareFunction): GPUDepthStencilState => ({
@@ -180,6 +197,15 @@ export class Renderer {
                 layout: cameraOnly,
                 vertex: { module: lineModule, entryPoint: 'vs', buffers: [instanceLayout(LineBatch.FLOATS)] },
                 fragment: { module: lineModule, entryPoint: 'fs', targets: [{ format, blend: PREMULTIPLIED }] },
+                depthStencil: depth(false, 'less-equal'),
+                multisample,
+            }),
+            curve: device.createRenderPipeline({
+                label: 'curve',
+                layout: withCurves,
+                vertex: { module: curveModule, entryPoint: 'vs' },
+                fragment: { module: curveModule, entryPoint: 'fs', targets: [{ format, blend: PREMULTIPLIED }] },
+                primitive: { topology: 'triangle-strip' },
                 depthStencil: depth(false, 'less-equal'),
                 multisample,
             }),
@@ -298,6 +324,35 @@ export class Renderer {
         return buffer;
     }
 
+    /** Upload curve points and ranges, growing the storage buffers (and their bind group) when needed. */
+    private uploadCurves(curves: CurveBatch): void {
+        if (curves.count === 0) return;
+        const pointBytes = curves.pointCount * CurveBatch.POINT_FLOATS * 4;
+        const rangeBytes = curves.count * 16;
+        const grow = (current: GPUBuffer | null, bytes: number, label: string) => {
+            if (current && current.size >= bytes) return current;
+            current?.destroy();
+            this.curveBindGroup = null;
+            return this.device.createBuffer({
+                label,
+                size: Math.max(bytes * 2, 4096),
+                usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+            });
+        };
+        this.curvePointBuffer = grow(this.curvePointBuffer, pointBytes, 'curve-points');
+        this.curveRangeBuffer = grow(this.curveRangeBuffer, rangeBytes, 'curve-ranges');
+        this.curveBindGroup ??= this.device.createBindGroup({
+            layout: this.curveLayout,
+            entries: [
+                { binding: 0, resource: { buffer: this.curvePointBuffer } },
+                { binding: 1, resource: { buffer: this.curveRangeBuffer } },
+            ],
+        });
+        const queue = this.device.queue;
+        queue.writeBuffer(this.curvePointBuffer, 0, curves.points.buffer, curves.points.byteOffset, pointBytes);
+        queue.writeBuffer(this.curveRangeBuffer, 0, curves.curves.buffer, curves.curves.byteOffset, rangeBytes);
+    }
+
     render(frame: FrameState): void {
         this.syncPieces(frame.pieces);
         this.ensureTargets();
@@ -327,6 +382,7 @@ export class Renderer {
 
         this.lineBuffer = this.uploadInstances(frame.lines, this.lineBuffer, 'lines');
         this.spriteBuffer = this.uploadInstances(frame.sprites, this.spriteBuffer, 'sprites');
+        this.uploadCurves(frame.curves);
 
         const encoder = this.device.createCommandEncoder();
         const pass = encoder.beginRenderPass({
@@ -372,6 +428,11 @@ export class Renderer {
             pass.setPipeline(this.pipelines.line);
             pass.setVertexBuffer(0, this.lineBuffer);
             pass.draw(6, frame.lines.count);
+        }
+        if (frame.curves.count > 0 && this.curveBindGroup) {
+            pass.setPipeline(this.pipelines.curve);
+            pass.setBindGroup(1, this.curveBindGroup);
+            for (let i = 0; i < frame.curves.count; i++) pass.draw((frame.curves.pointsIn(i) + 1) * 2, 1, 0, i);
         }
         if (frame.sprites.count > 0 && this.spriteBuffer) {
             pass.setPipeline(this.pipelines.sprite);

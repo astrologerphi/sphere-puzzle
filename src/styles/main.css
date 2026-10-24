@@ -32,7 +32,6 @@
     --axis-z: #b38cff;
 
     --font-sans: 'Space Grotesk', system-ui, sans-serif;
-    --font-display: 'Instrument Serif', 'Times New Roman', serif;
     --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
     --radius-s: 8px;
@@ -172,18 +171,15 @@ textarea {
 
 .brand__title {
     margin: 0;
-    font-family: var(--font-display);
-    font-size: 30px;
-    font-weight: 400;
-    line-height: 1;
-    letter-spacing: 0.01em;
+    font-size: 21px;
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
 }
 
 .brand__subtitle {
     margin: 4px 0 0;
-    font-family: var(--font-display);
-    font-style: italic;
-    font-size: 15px;
+    font-size: 12.5px;
     color: var(--text-dim);
 }
 
@@ -398,9 +394,9 @@ textarea {
 
 .shape-card__name {
     overflow: hidden;
-    font-family: var(--font-display);
-    font-size: 21px;
-    line-height: 1.1;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -495,8 +491,8 @@ textarea {
 
 .empty-state__title {
     margin: 0;
-    font-family: var(--font-display);
-    font-size: 22px;
+    font-size: 16px;
+    font-weight: 600;
 }
 
 .empty-state__text {
@@ -694,9 +690,9 @@ textarea {
 }
 
 .clock__phase {
-    font-family: var(--font-display);
-    font-style: italic;
-    font-size: 16px;
+    font-size: 13px;
+    font-weight: 500;
+    text-transform: capitalize;
     transition: color 0.6s;
 }
 
@@ -798,9 +794,9 @@ textarea {
 .readout__name {
     margin: 2px 0 10px;
     overflow: hidden;
-    font-family: var(--font-display);
-    font-size: 26px;
-    line-height: 1.1;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -816,10 +812,8 @@ textarea {
 
 .readout__grid dt {
     color: var(--text-faint);
-    font-family: var(--font-display);
-    font-style: italic;
-    font-size: 16px;
-    line-height: 1.1;
+    font-size: 13px;
+    line-height: 1.4;
 }
 
 .readout__grid dd {
@@ -970,8 +964,8 @@ kbd {
 
 .gpu-error__title {
     margin: 0 0 8px;
-    font-family: var(--font-display);
-    font-size: 28px;
+    font-size: 20px;
+    font-weight: 600;
 }
 
 .gpu-error__text {
@@ -1036,10 +1030,9 @@ kbd {
 
 .dialog__title {
     margin: 0;
-    font-family: var(--font-display);
-    font-size: 32px;
-    font-weight: 400;
-    line-height: 1.05;
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1.2;
 }
 
 .dialog__subtitle {

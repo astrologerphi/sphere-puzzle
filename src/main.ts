@@ -5,7 +5,7 @@ import { DAY_LENGTH } from './puzzle/piece.js';
 import { DEFAULT_SHAPES, LOOP_DURATION } from './puzzle/shapes.js';
 import { PuzzleStore } from './puzzle/store.js';
 import { MAX_R, MIN_R } from './puzzle/validate.js';
-import { LineBatch, SpriteBatch } from './render/batches.js';
+import { CurveBatch, LineBatch, SpriteBatch } from './render/batches.js';
 import { OrbitCamera } from './render/camera.js';
 import { Renderer } from './render/renderer.js';
 import { buildScene, cameraLight } from './render/scene.js';
@@ -110,6 +110,7 @@ async function main(): Promise<void> {
     resize();
 
     const lines = new LineBatch();
+    const curves = new CurveBatch();
     const sprites = new SpriteBatch();
     const start = performance.now();
     let last = start;
@@ -125,7 +126,7 @@ async function main(): Promise<void> {
         input.update(dt, now);
         for (const piece of store.pieces) piece.animate(dt);
 
-        buildScene(store.pieces, lines, sprites, {
+        buildScene(store.pieces, lines, curves, sprites, {
             selectedId: store.selectedId,
             showCenterRays: store.showCenterRays,
             loopHours,
@@ -137,6 +138,7 @@ async function main(): Promise<void> {
             pieces: store.pieces,
             selectedId: store.selectedId,
             lines,
+            curves,
             sprites,
             seconds,
             loopHours,
