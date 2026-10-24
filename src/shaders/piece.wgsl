@@ -39,7 +39,7 @@ fn project(p: vec3f) -> vec2f {
 }
 
 @fragment
-fn fs(input: VsOut, @builtin(front_facing) frontFacing: bool) -> @location(0) vec4f {
+fn fs_edge(input: VsOut, @builtin(front_facing) frontFacing: bool) -> @location(0) vec4f {
     let dir = normalize(input.localDir);
     let s = project(dir);
     let count = u32(piece.center.w);
@@ -60,14 +60,22 @@ fn fs(input: VsOut, @builtin(front_facing) frontFacing: bool) -> @location(0) ve
     if (winding == 0) {
         discard;
     }
+    return shade(input.worldPos, frontFacing);
+}
 
+@fragment
+fn fs_inside(input: VsOut, @builtin(front_facing) frontFacing: bool) -> @location(0) vec4f {
+    return shade(input.worldPos, frontFacing);
+}
+
+fn shade(worldPos: vec3f, frontFacing: bool) -> vec4f {
     let selected = piece.basisU.w;
 
-    var n = normalize(input.worldPos);
+    var n = normalize(worldPos);
     if (!frontFacing) {
         n = -n;
     }
-    let v = normalize(cam.eye.xyz - input.worldPos);
+    let v = normalize(cam.eye.xyz - worldPos);
     let l = normalize(cam.light.xyz);
     let diffuse = 0.45 + 0.55 * max(dot(n, l), 0.0);
     let halfVec = normalize(l + v);
