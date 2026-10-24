@@ -2,7 +2,9 @@ import { DEG, cartesianToSpherical } from './core/math.js';
 import { InputController } from './input.js';
 import { ShapeEditor, byId, type Notify } from './puzzle/editor.js';
 import { DAY_LENGTH } from './puzzle/piece.js';
-import { DEFAULT_SHAPES, LOOP_DURATION } from './puzzle/shapes.js';
+import { setupPersistence } from './puzzle/persistence.js';
+
+import { LOOP_DURATION } from './puzzle/shapes.js';
 import { PuzzleStore } from './puzzle/store.js';
 import { MAX_R, MIN_R } from './puzzle/validate.js';
 import { CurveBatch, LineBatch, SpriteBatch } from './render/batches.js';
@@ -75,11 +77,11 @@ function createClock(): (hours: number) => void {
 
 async function main(): Promise<void> {
     const store = new PuzzleStore();
-    for (const [name, shape] of Object.entries(DEFAULT_SHAPES)) store.add(name, shape);
+    const camera = new OrbitCamera();
+    setupPersistence(store, camera);
 
     const notify = createToast();
     const editor = new ShapeEditor(store, notify);
-    const camera = new OrbitCamera();
     const canvas = byId<HTMLCanvasElement>('scene-canvas');
     const input = new InputController(canvas, camera, store, editor);
     bindHud(store);

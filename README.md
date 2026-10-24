@@ -19,6 +19,10 @@ The left panel loads the default shapes from `src/puzzle/shapes.ts`. Click **Add
 - `r` (radial distance) is clamped to `0.5 – 2`, and defaults to `1` if it is missing.
 - Vertices are keyed by time (`0 – 24`). A vertex at time `0` and one at time `12` are required.
 
+## Saving
+
+The puzzle is saved to `localStorage` (key `sphere-puzzle:v1`) whenever it changes. Saved state includes the shapes, their placement and radial distance, the center-ray toggle and the camera view. The default shapes are loaded only when nothing valid is saved. To start over, clear the site data.
+
 ## Controls
 
 | Input                 | No selection    | Piece selected             |

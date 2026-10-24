@@ -1,4 +1,4 @@
-import { DEG, clamp, quat, vec3, type Vec3 } from '../core/math.js';
+import { DEG, clamp, quat, vec3, type Quat, type Vec3 } from '../core/math.js';
 import { Piece } from './piece.js';
 import type { Shape } from './shapes.js';
 import { MAX_R, MIN_R } from './validate.js';
@@ -40,8 +40,13 @@ export class PuzzleStore {
         return `${trimmed}-${i}`;
     }
 
-    add(name: string, shape: Shape): Piece {
+    /** Add a piece; `placement` restores a saved orientation and radial distance without animating. */
+    add(name: string, shape: Shape, placement?: { orientation: Quat; r: number }): Piece {
         const piece = new Piece(this.nextId++, this.uniqueName(name), shape);
+        if (placement) {
+            piece.orientation = piece.targetOrientation = quat.normalize(placement.orientation);
+            piece.r = piece.targetR = clamp(placement.r, MIN_R, MAX_R);
+        }
         this.pieces.push(piece);
         this.emit();
         return piece;
