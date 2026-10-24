@@ -1,4 +1,5 @@
-// Deep-space backdrop: nebula clouds and twinkling stars that rotate with the camera.
+// Deep-space backdrop: nebula clouds and stars that rotate with the camera.
+// Time-independent, so the renderer can cache it and redraw only when the view changes.
 
 struct VsOut {
     @builtin(position) position: vec4f,
@@ -11,7 +12,7 @@ fn vs(@builtin(vertex_index) index: u32) -> VsOut {
     return out;
 }
 
-fn starLayer(dir: vec3f, scale: f32, threshold: f32, time: f32) -> vec3f {
+fn starLayer(dir: vec3f, scale: f32, threshold: f32) -> vec3f {
     let p = dir * scale;
     let cell = floor(p);
     var color = vec3f(0.0);
@@ -26,11 +27,11 @@ fn starLayer(dir: vec3f, scale: f32, threshold: f32, time: f32) -> vec3f {
                 let starPos = normalize(c + h);
                 let d = length(dir - starPos) * scale;
                 let size = mix(0.035, 0.11, h.y * h.y);
-                let twinkle = 0.65 + 0.35 * sin(time * (1.0 + h.z * 3.0) + h.y * TAU);
+                let brightness = 0.65 + 0.35 * sin(h.z * 17.0 + h.y * TAU);
                 let core = exp(-d * d / (size * size * 0.18));
                 let halo = exp(-d / (size * 1.6)) * 0.14;
                 let tint = mix(vec3f(0.65, 0.78, 1.0), vec3f(1.0, 0.86, 0.68), h.z);
-                color += tint * (core + halo) * twinkle;
+                color += tint * (core + halo) * brightness;
             }
         }
     }
@@ -41,14 +42,13 @@ fn starLayer(dir: vec3f, scale: f32, threshold: f32, time: f32) -> vec3f {
 fn fs(@builtin(position) fragCoord: vec4f) -> @location(0) vec4f {
     let ndc = fragToNdc(fragCoord.xy);
     let dir = worldRay(ndc);
-    let time = cam.eye.w;
 
     // vertical gradient: indigo at the top, deep teal-black at the bottom
     let up = dir.y * 0.5 + 0.5;
     var color = mix(vec3f(0.010, 0.016, 0.035), vec3f(0.028, 0.020, 0.070), up);
 
     // nebula
-    let q = dir * 1.6 + vec3f(0.0, 0.0, time * 0.004);
+    let q = dir * 1.6;
     let n1 = fbm(q + fbm(q * 1.7) * 1.3);
     let n2 = fbm(q * 2.3 + vec3f(5.2, 1.3, 2.8));
     let violet = vec3f(0.36, 0.13, 0.55);
@@ -61,14 +61,14 @@ fn fs(@builtin(position) fragCoord: vec4f) -> @location(0) vec4f {
 
     // stars
     let dpr = cam.viewport.z;
-    color += starLayer(dir, 90.0, 0.86, time) * 0.9;
-    color += starLayer(dir, 210.0, 0.80, time * 1.3) * 0.55;
+    color += starLayer(dir, 90.0, 0.86) * 0.9;
+    color += starLayer(dir, 210.0, 0.80) * 0.55;
 
     // vignette
     let v = 1.0 - dot(ndc * vec2f(0.55, 0.7), ndc * vec2f(0.55, 0.7));
     color *= mix(0.55, 1.0, clamp(v, 0.0, 1.0));
 
     // subtle grain to prevent banding
-    let grain = (hash31(vec3f(fragCoord.xy, time * 60.0)) - 0.5) * 0.012 * dpr;
+    let grain = (hash31(vec3f(fragCoord.xy, 7.0)) - 0.5) * 0.012 * dpr;
     return vec4f(color + grain, 1.0);
 }

@@ -1,6 +1,9 @@
 // The base sphere (radius 1), ray traced per pixel for a perfect silhouette.
-// fs_back draws the far inner wall (opaque, writes depth),
+// fs_back draws the far inner wall into the cached backdrop (only when the view changes),
+// fs_backdrop blits that cache every frame and writes the wall's depth,
 // fs_front draws the glass shell, rim light and atmosphere (blended, depth-tested only).
+
+@group(1) @binding(0) var backdrop: texture_2d<f32>;
 
 struct VsOut {
     @builtin(position) position: vec4f,
@@ -72,8 +75,9 @@ fn intersectUnitSphere(origin: vec3f, dir: vec3f) -> Hit {
     return h;
 }
 
+// Far inner wall, drawn over the background into the cached backdrop texture.
 @fragment
-fn fs_back(@builtin(position) fragCoord: vec4f) -> FsOut {
+fn fs_back(@builtin(position) fragCoord: vec4f) -> @location(0) vec4f {
     let origin = cam.eye.xyz;
     let dir = worldRay(fragToNdc(fragCoord.xy));
     let h = intersectUnitSphere(origin, dir);
@@ -89,7 +93,7 @@ fn fs_back(@builtin(position) fragCoord: vec4f) -> FsOut {
     let facing = clamp(dot(inward, -dir), 0.0, 1.0);
 
     // inner wall: deep sapphire with a soft cosmic swirl
-    let swirl = fbm(p * 3.0 + vec3f(0.0, cam.eye.w * 0.03, 0.0));
+    let swirl = fbm(p * 3.0);
     var color = mix(vec3f(0.012, 0.025, 0.060), vec3f(0.030, 0.070, 0.135), swirl);
     color += vec3f(0.05, 0.11, 0.20) * pow(1.0 - facing, 2.0);
     color *= 0.75 + 0.35 * max(dot(inward, light), 0.0);
@@ -97,10 +101,19 @@ fn fs_back(@builtin(position) fragCoord: vec4f) -> FsOut {
     color += vec3f(0.30, 0.55, 0.95) * grid.minor * 0.32;
     color += vec3f(1.00, 0.78, 0.35) * grid.equator * 0.55;
     color += vec3f(0.55, 0.95, 0.85) * grid.meridian * 0.55;
+    return vec4f(color, 1.0);
+}
+
+// Copies the cached backdrop into the frame and restores the inner wall's depth analytically.
+@fragment
+fn fs_backdrop(@builtin(position) fragCoord: vec4f) -> FsOut {
+    let origin = cam.eye.xyz;
+    let dir = worldRay(fragToNdc(fragCoord.xy));
+    let h = intersectUnitSphere(origin, dir);
 
     var out: FsOut;
-    out.color = vec4f(color, 1.0);
-    out.depth = depthOf(origin + dir * h.tFar);
+    out.color = textureLoad(backdrop, vec2i(fragCoord.xy), 0);
+    out.depth = select(1.0, depthOf(origin + dir * h.tFar), h.hit);
     return out;
 }
 

@@ -13,6 +13,8 @@ import { Renderer } from './render/renderer.js';
 import { buildScene, cameraLight } from './render/scene.js';
 
 const MAX_DPR = 2;
+/** High refresh displays (120/144/165 Hz) would otherwise redraw the scene far more often than needed. */
+const FRAME_INTERVAL = 1000 / 60;
 
 function createToast(): Notify {
     const el = byId<HTMLElement>('toast');
@@ -116,8 +118,14 @@ async function main(): Promise<void> {
     const sprites = new SpriteBatch();
     const start = performance.now();
     let last = start;
+    let nextFrame = start;
 
     const frame = (now: number) => {
+        requestAnimationFrame(frame);
+        // small tolerance so a 60 Hz display, whose vsync jitters around the interval, never skips frames
+        if (now < nextFrame - 2) return;
+        nextFrame += FRAME_INTERVAL;
+        if (nextFrame < now) nextFrame = now + FRAME_INTERVAL;
         const dt = Math.min((now - last) / 1000, 0.1);
         last = now;
         const seconds = (now - start) / 1000;
@@ -147,7 +155,6 @@ async function main(): Promise<void> {
             light: cameraLight(camera.eye, camera.right),
         });
         updateClock(loopHours);
-        requestAnimationFrame(frame);
     };
     requestAnimationFrame(frame);
 }

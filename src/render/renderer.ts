@@ -14,6 +14,8 @@ const SAMPLE_COUNT = 4;
 const DEPTH_FORMAT: GPUTextureFormat = 'depth24plus';
 const CAMERA_BYTES = 256;
 const PIECE_UNIFORM_BYTES = 128;
+/** Camera floats that vary with time only (elapsed seconds, loop hours); the cached backdrop ignores them. */
+const TIME_FLOATS = new Set([51, 55]);
 /** Pieces float just above their nominal radius so they never z-fight with the glass shell. */
 export const FILL_LIFT = 1.006;
 export const LINE_LIFT = 1.012;
@@ -28,7 +30,9 @@ interface PieceResources {
     outline: GPUBuffer;
     vertices: GPUBuffer;
     indices: GPUBuffer;
-    indexCount: number;
+    /** Triangles fully inside the outline come first, followed by those crossing it. */
+    insideCount: number;
+    edgeCount: number;
     bindGroup: GPUBindGroup;
 }
 
@@ -51,11 +55,14 @@ export class Renderer {
     private readonly cameraBindGroup: GPUBindGroup;
     private readonly pieceLayout: GPUBindGroupLayout;
     private readonly curveLayout: GPUBindGroupLayout;
+    private readonly backdropLayout: GPUBindGroupLayout;
     private readonly pipelines: {
         background: GPURenderPipeline;
         globeBack: GPURenderPipeline;
+        backdrop: GPURenderPipeline;
         globeFront: GPURenderPipeline;
-        piece: GPURenderPipeline;
+        pieceInside: GPURenderPipeline;
+        pieceEdge: GPURenderPipeline;
         line: GPURenderPipeline;
         curve: GPURenderPipeline;
         sprite: GPURenderPipeline;
@@ -68,6 +75,11 @@ export class Renderer {
     private curveBindGroup: GPUBindGroup | null = null;
     private colorTarget: GPUTexture | null = null;
     private depthTarget: GPUTexture | null = null;
+    /** Background + inner globe wall, re-rendered only when the view changes. */
+    private backdropTarget: GPUTexture | null = null;
+    private backdropBindGroup: GPUBindGroup | null = null;
+    private readonly backdropCamera = new Float32Array(CAMERA_BYTES / 4);
+    private backdropValid = false;
     private readonly cameraData = new Float32Array(CAMERA_BYTES / 4);
     private readonly pieceData = new Float32Array(PIECE_UNIFORM_BYTES / 4);
 
@@ -133,7 +145,15 @@ export class Renderer {
         const curveModule = module('curve', curveWgsl);
         const spriteModule = module('sprite', spriteWgsl);
 
+        this.backdropLayout = device.createBindGroupLayout({
+            label: 'backdrop',
+            entries: [
+                { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'unfilterable-float' } },
+            ],
+        });
+
         const cameraOnly = device.createPipelineLayout({ bindGroupLayouts: [cameraLayout] });
+        const withBackdrop = device.createPipelineLayout({ bindGroupLayouts: [cameraLayout, this.backdropLayout] });
         const withPiece = device.createPipelineLayout({ bindGroupLayouts: [cameraLayout, this.pieceLayout] });
         const withCurves = device.createPipelineLayout({ bindGroupLayouts: [cameraLayout, this.curveLayout] });
         const multisample: GPUMultisampleState = { count: SAMPLE_COUNT };
@@ -154,36 +174,45 @@ export class Renderer {
             })),
         });
 
-        this.pipelines = {
-            background: device.createRenderPipeline({
-                label: 'background',
-                layout: cameraOnly,
-                vertex: { module: backgroundModule, entryPoint: 'vs' },
-                fragment: { module: backgroundModule, entryPoint: 'fs', targets: [{ format }] },
-                depthStencil: depth(false, 'always'),
-                multisample,
-            }),
-            globeBack: device.createRenderPipeline({
-                label: 'globe-back',
-                layout: cameraOnly,
-                vertex: { module: globeModule, entryPoint: 'vs' },
-                fragment: { module: globeModule, entryPoint: 'fs_back', targets: [{ format }] },
-                depthStencil: depth(true, 'less'),
-                multisample,
-            }),
-            piece: device.createRenderPipeline({
-                label: 'piece',
+        const piecePipeline = (entryPoint: string) =>
+            device.createRenderPipeline({
+                label: `piece-${entryPoint}`,
                 layout: withPiece,
                 vertex: {
                     module: pieceModule,
                     entryPoint: 'vs',
                     buffers: [{ arrayStride: 12, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }] }],
                 },
-                fragment: { module: pieceModule, entryPoint: 'fs', targets: [{ format }] },
+                fragment: { module: pieceModule, entryPoint, targets: [{ format }] },
                 primitive: { topology: 'triangle-list', cullMode: 'none' },
                 depthStencil: depth(true, 'less'),
                 multisample,
+            });
+
+        this.pipelines = {
+            // backdrop cache: single-sampled, no depth
+            background: device.createRenderPipeline({
+                label: 'background',
+                layout: cameraOnly,
+                vertex: { module: backgroundModule, entryPoint: 'vs' },
+                fragment: { module: backgroundModule, entryPoint: 'fs', targets: [{ format }] },
             }),
+            globeBack: device.createRenderPipeline({
+                label: 'globe-back',
+                layout: cameraOnly,
+                vertex: { module: globeModule, entryPoint: 'vs' },
+                fragment: { module: globeModule, entryPoint: 'fs_back', targets: [{ format }] },
+            }),
+            backdrop: device.createRenderPipeline({
+                label: 'backdrop',
+                layout: withBackdrop,
+                vertex: { module: globeModule, entryPoint: 'vs' },
+                fragment: { module: globeModule, entryPoint: 'fs_backdrop', targets: [{ format }] },
+                depthStencil: depth(true, 'always'),
+                multisample,
+            }),
+            pieceInside: piecePipeline('fs_inside'),
+            pieceEdge: piecePipeline('fs_edge'),
             globeFront: device.createRenderPipeline({
                 label: 'globe-front',
                 layout: cameraOnly,
@@ -225,6 +254,7 @@ export class Renderer {
         if (this.colorTarget && this.colorTarget.width === width && this.colorTarget.height === height) return;
         this.colorTarget?.destroy();
         this.depthTarget?.destroy();
+        this.backdropTarget?.destroy();
         const size = { width: Math.max(1, width), height: Math.max(1, height) };
         this.colorTarget = this.device.createTexture({
             size,
@@ -238,6 +268,27 @@ export class Renderer {
             format: DEPTH_FORMAT,
             usage: GPUTextureUsage.RENDER_ATTACHMENT,
         });
+        this.backdropTarget = this.device.createTexture({
+            size,
+            format: navigator.gpu.getPreferredCanvasFormat(),
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+        });
+        this.backdropBindGroup = this.device.createBindGroup({
+            layout: this.backdropLayout,
+            entries: [{ binding: 0, resource: this.backdropTarget.createView() }],
+        });
+        this.backdropValid = false;
+    }
+
+    /** True when the cached backdrop was rendered with the current camera (time aside). */
+    private backdropIsCurrent(): boolean {
+        if (!this.backdropValid) return false;
+        const a = this.cameraData;
+        const b = this.backdropCamera;
+        for (let i = 0; i < a.length; i++) {
+            if (a[i] !== b[i] && !TIME_FLOATS.has(i)) return false;
+        }
+        return true;
     }
 
     /** Create GPU resources for new pieces and release those of removed ones. */
@@ -258,7 +309,7 @@ export class Renderer {
 
     private createPieceResources(piece: Piece): PieceResources {
         const device = this.device;
-        const { vertices, indices } = buildCapMesh(piece);
+        const { vertices, indices, insideCount } = buildCapMesh(piece);
 
         const vertexBuffer = device.createBuffer({
             label: `piece-${piece.id}-vertices`,
@@ -269,7 +320,7 @@ export class Renderer {
 
         const indexBuffer = device.createBuffer({
             label: `piece-${piece.id}-indices`,
-            size: indices.byteLength,
+            size: Math.max(4, indices.byteLength),
             usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
         });
         device.queue.writeBuffer(indexBuffer, 0, indices);
@@ -300,7 +351,8 @@ export class Renderer {
             outline,
             vertices: vertexBuffer,
             indices: indexBuffer,
-            indexCount: indices.length,
+            insideCount,
+            edgeCount: indices.length - insideCount,
             bindGroup,
         };
     }
@@ -385,6 +437,28 @@ export class Renderer {
         this.uploadCurves(frame.curves);
 
         const encoder = this.device.createCommandEncoder();
+
+        if (!this.backdropIsCurrent()) {
+            const backdropPass = encoder.beginRenderPass({
+                colorAttachments: [
+                    {
+                        view: this.backdropTarget!.createView(),
+                        clearValue: { r: 0, g: 0, b: 0, a: 1 },
+                        loadOp: 'clear',
+                        storeOp: 'store',
+                    },
+                ],
+            });
+            backdropPass.setBindGroup(0, this.cameraBindGroup);
+            backdropPass.setPipeline(this.pipelines.background);
+            backdropPass.draw(3);
+            backdropPass.setPipeline(this.pipelines.globeBack);
+            backdropPass.draw(3);
+            backdropPass.end();
+            this.backdropCamera.set(c);
+            this.backdropValid = true;
+        }
+
         const pass = encoder.beginRenderPass({
             colorAttachments: [
                 {
@@ -405,20 +479,21 @@ export class Renderer {
 
         pass.setBindGroup(0, this.cameraBindGroup);
 
-        pass.setPipeline(this.pipelines.background);
+        pass.setPipeline(this.pipelines.backdrop);
+        pass.setBindGroup(1, this.backdropBindGroup!);
         pass.draw(3);
 
-        pass.setPipeline(this.pipelines.globeBack);
-        pass.draw(3);
-
-        pass.setPipeline(this.pipelines.piece);
-        for (const piece of frame.pieces) {
-            const res = this.pieceResources.get(piece.id);
-            if (!res) continue;
-            pass.setBindGroup(1, res.bindGroup);
-            pass.setVertexBuffer(0, res.vertices);
-            pass.setIndexBuffer(res.indices, 'uint32');
-            pass.drawIndexed(res.indexCount);
+        for (const edge of [false, true]) {
+            pass.setPipeline(edge ? this.pipelines.pieceEdge : this.pipelines.pieceInside);
+            for (const piece of frame.pieces) {
+                const res = this.pieceResources.get(piece.id);
+                const count = edge ? res?.edgeCount : res?.insideCount;
+                if (!res || !count) continue;
+                pass.setBindGroup(1, res.bindGroup);
+                pass.setVertexBuffer(0, res.vertices);
+                pass.setIndexBuffer(res.indices, 'uint32');
+                pass.drawIndexed(count, 1, edge ? res.insideCount : 0);
+            }
         }
 
         pass.setPipeline(this.pipelines.globeFront);
@@ -445,14 +520,22 @@ export class Renderer {
     }
 }
 
-/** Unit-direction cap mesh around the piece center, large enough to contain its outline. */
-function buildCapMesh(piece: Piece): { vertices: Float32Array; indices: Uint32Array } {
+/**
+ * Unit-direction cap mesh around the piece center, large enough to contain its outline.
+ * Triangles are classified once on the CPU so the per-pixel winding test only runs near the outline:
+ * fully inside triangles come first (`insideCount` indices), crossing ones follow, outside ones are dropped.
+ */
+function buildCapMesh(piece: Piece): { vertices: Float32Array; indices: Uint32Array; insideCount: number } {
     const rings = Math.min(72, Math.max(8, Math.ceil(piece.capAngle / (2.5 * (Math.PI / 180)))));
     const segments = 96;
     const c = piece.center;
     const u = piece.basisU;
     const v = piece.basisV;
-    const vertices = new Float32Array((rings + 1) * (segments + 1) * 3);
+    const vertexCount = (rings + 1) * (segments + 1);
+    const vertices = new Float32Array(vertexCount * 3);
+    const stereo = new Float64Array(vertexCount * 2);
+    const inside = new Uint8Array(vertexCount);
+    const nearAntipode = new Uint8Array(vertexCount);
     let o = 0;
     for (let i = 0; i <= rings; i++) {
         const alpha = (piece.capAngle * i) / rings;
@@ -462,25 +545,73 @@ function buildCapMesh(piece: Piece): { vertices: Float32Array; indices: Uint32Ar
             const beta = (j / segments) * Math.PI * 2;
             const cb = Math.cos(beta) * sa;
             const sb = Math.sin(beta) * sa;
-            vertices[o++] = c[0] * ca + u[0] * cb + v[0] * sb;
-            vertices[o++] = c[1] * ca + u[1] * cb + v[1] * sb;
-            vertices[o++] = c[2] * ca + u[2] * cb + v[2] * sb;
+            const dir: Vec3 = [
+                c[0] * ca + u[0] * cb + v[0] * sb,
+                c[1] * ca + u[1] * cb + v[1] * sb,
+                c[2] * ca + u[2] * cb + v[2] * sb,
+            ];
+            const n = o / 3;
+            vertices.set(dir, o);
+            o += 3;
+            const [x, y] = piece.project(dir);
+            stereo[n * 2] = x;
+            stereo[n * 2 + 1] = y;
+            inside[n] = piece.containsLocal(dir) ? 1 : 0;
+            nearAntipode[n] = ca < -0.9 ? 1 : 0;
         }
     }
-    const indices = new Uint32Array(rings * segments * 6);
-    let k = 0;
+
+    // bounding boxes of the outline segments in the stereographic plane
+    const outline = piece.stereo;
+    const segmentCount = outline.length / 2;
+    const boxes = new Float64Array(segmentCount * 4);
+    for (let i = 0; i < segmentCount; i++) {
+        const j = (i + 1) % segmentCount;
+        const ax = outline[i * 2]!,
+            ay = outline[i * 2 + 1]!,
+            bx = outline[j * 2]!,
+            by = outline[j * 2 + 1]!;
+        boxes.set([Math.min(ax, bx), Math.min(ay, by), Math.max(ax, bx), Math.max(ay, by)], i * 4);
+    }
+    const crossesOutline = (a: number, b: number, d: number): boolean => {
+        if (nearAntipode[a] || nearAntipode[b] || nearAntipode[d]) return true;
+        const xs = [stereo[a * 2]!, stereo[b * 2]!, stereo[d * 2]!];
+        const ys = [stereo[a * 2 + 1]!, stereo[b * 2 + 1]!, stereo[d * 2 + 1]!];
+        let minX = Math.min(...xs),
+            maxX = Math.max(...xs),
+            minY = Math.min(...ys),
+            maxY = Math.max(...ys);
+        // projected triangle edges are circular arcs, so pad the box generously
+        const pad = Math.max(maxX - minX, maxY - minY) * 0.25 + 1e-6;
+        minX -= pad;
+        maxX += pad;
+        minY -= pad;
+        maxY += pad;
+        for (let i = 0; i < segmentCount; i++) {
+            const k = i * 4;
+            if (boxes[k]! <= maxX && boxes[k + 2]! >= minX && boxes[k + 1]! <= maxY && boxes[k + 3]! >= minY)
+                return true;
+        }
+        return false;
+    };
+
+    const insideTris: number[] = [];
+    const edgeTris: number[] = [];
+    const classify = (a: number, b: number, d: number) => {
+        if (crossesOutline(a, b, d)) edgeTris.push(a, b, d);
+        else if (inside[a]) insideTris.push(a, b, d);
+    };
     const row = segments + 1;
     for (let i = 0; i < rings; i++) {
         for (let j = 0; j < segments; j++) {
             const a = i * row + j;
             const b = a + row;
-            indices[k++] = a;
-            indices[k++] = b;
-            indices[k++] = a + 1;
-            indices[k++] = a + 1;
-            indices[k++] = b;
-            indices[k++] = b + 1;
+            classify(a, b, a + 1);
+            classify(a + 1, b, b + 1);
         }
     }
-    return { vertices, indices };
+    const indices = new Uint32Array(insideTris.length + edgeTris.length);
+    indices.set(insideTris, 0);
+    indices.set(edgeTris, insideTris.length);
+    return { vertices, indices, insideCount: insideTris.length };
 }

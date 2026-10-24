@@ -90,11 +90,16 @@ export class OrbitCamera {
             const decay = Math.exp(-4 * dt);
             this.velocityYaw *= decay;
             this.velocityPitch *= decay;
+            // come to a true stop, so an unchanged view lets the renderer reuse its cached backdrop
+            if (Math.abs(this.velocityYaw) < 1e-4) this.velocityYaw = 0;
+            if (Math.abs(this.velocityPitch) < 1e-4) this.velocityPitch = 0;
         }
         const k = dt > 0 ? 1 - Math.exp(-14 * dt) : 1;
-        this.yaw += (this.targetYaw - this.yaw) * k;
-        this.pitch += (this.targetPitch - this.pitch) * k;
-        this.distance += (this.targetDistance - this.distance) * k;
+        const approach = (value: number, target: number) =>
+            Math.abs(target - value) < 1e-6 ? target : value + (target - value) * k;
+        this.yaw = approach(this.yaw, this.targetYaw);
+        this.pitch = approach(this.pitch, this.targetPitch);
+        this.distance = approach(this.distance, this.targetDistance);
 
         const cp = Math.cos(this.pitch);
         this.eye = [
