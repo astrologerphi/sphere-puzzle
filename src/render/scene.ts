@@ -64,12 +64,12 @@ export function buildScene(pieces: readonly Piece[], lines: LineBatch, sprites: 
         const radius = piece.r * LINE_LIFT;
         const world = piece.path.map(p => piece.toWorld(p, radius));
         const n = world.length;
-        const width = px(selected ? 3.4 : 2.4);
-        const glow = px(selected ? 11 : 7);
-        const glowStrength = selected ? 1.35 : 0.85;
+        // same stroke as the coordinate axes; the selected piece is just brighter
+        const alpha = selected ? 1 : 0.7;
+        const glowStrength = selected ? 0.9 : 0.6;
         for (let i = 0; i < n; i++) {
-            const color = piece.pathDay[i] ? DAY : NIGHT;
-            lines.push(world[i]!, world[(i + 1) % n]!, { width, glow, colorA: color, glowStrength });
+            const color = withAlpha(piece.pathDay[i] ? DAY : NIGHT, alpha);
+            lines.push(world[i]!, world[(i + 1) % n]!, { width: px(1.8), glow: px(6), colorA: color, glowStrength });
         }
 
         // the star and its fading trail
