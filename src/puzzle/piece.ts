@@ -39,6 +39,8 @@ export class Piece {
     readonly pathDay: boolean[] = [];
     readonly vertices: Vec3[];
     readonly center: Vec3;
+    /** Length of the arc-weighted outline sum behind `center`; weights this piece in a group's center. */
+    readonly centerWeight: number;
     readonly basisU: Vec3;
     readonly basisV: Vec3;
     /** `path` stereographically projected from the antipode of `center` (x, y pairs). */
@@ -81,7 +83,7 @@ export class Piece {
             }
         }
 
-        this.center = this.computeCenter();
+        [this.center, this.centerWeight] = this.computeCenter();
         this.basisU = vec3.perpendicular(this.center);
         this.basisV = vec3.cross(this.center, this.basisU);
 
@@ -96,8 +98,8 @@ export class Piece {
         this.capAngle = clamp(maxAngle + CAP_MARGIN, 6 * DEG, Math.PI);
     }
 
-    /** Arc-length weighted mean direction of the outline. */
-    private computeCenter(): Vec3 {
+    /** Arc-length weighted mean direction of the outline, and the length of that weighted sum. */
+    private computeCenter(): [Vec3, number] {
         let sum: Vec3 = [0, 0, 0];
         const n = this.path.length;
         for (let i = 0; i < n; i++) {
@@ -106,10 +108,11 @@ export class Piece {
             const len = angleBetween(a, b);
             sum = vec3.add(sum, vec3.scale(vec3.normalize(vec3.add(a, b)), len));
         }
-        if (vec3.length(sum) < 1e-6) {
+        const weight = vec3.length(sum);
+        if (weight < 1e-6) {
             sum = this.vertices.reduce<Vec3>((acc, v) => vec3.add(acc, v), [0, 0, 0]);
         }
-        return vec3.length(sum) < 1e-6 ? this.vertices[0]! : vec3.normalize(sum);
+        return [vec3.length(sum) < 1e-6 ? this.vertices[0]! : vec3.normalize(sum), Math.max(weight, 1e-3)];
     }
 
     /** Stereographic projection (from -center) of a local unit direction. */
@@ -184,4 +187,14 @@ export class Piece {
         );
         return d < 0.9999999 || Math.abs(this.targetR - this.r) > 1e-4;
     }
+}
+
+/**
+ * Center direction of several pieces treated as one shape: the arc-length weighted mean of their
+ * combined outlines. For a single piece this is exactly `worldCenter()`.
+ */
+export function groupCenter(pieces: readonly Piece[]): Vec3 {
+    let sum: Vec3 = [0, 0, 0];
+    for (const piece of pieces) sum = vec3.add(sum, vec3.scale(piece.worldCenter(), piece.centerWeight));
+    return vec3.length(sum) < 1e-6 ? pieces[0]!.worldCenter() : vec3.normalize(sum);
 }

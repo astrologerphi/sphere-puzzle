@@ -25,15 +25,21 @@ The puzzle is saved to `localStorage` (key `sphere-puzzle:v1`) whenever it chang
 
 ## Controls
 
-| Input                 | No selection    | Piece selected             |
-| --------------------- | --------------- | -------------------------- |
-| Left mouse drag       | orbit the scene | orbit the scene            |
-| Mouse wheel           | zoom            | change the radial distance |
-| ← / →                 |                 | move along the longitude   |
-| ↑ / ↓                 |                 | move along the latitude    |
-| Shift + ← / →         |                 | rotate the piece           |
-| Click a piece or card | select          | select / deselect          |
-| Esc / Delete          |                 | deselect / remove          |
+| Input                                     | No selection    | Piece(s) selected               |
+| ----------------------------------------- | --------------- | ------------------------------- |
+| Left mouse drag                           | orbit the scene | orbit the scene                 |
+| Mouse wheel                               | zoom            | change the radial distance      |
+| ← / →                                     |                 | move along the longitude        |
+| ↑ / ↓                                     |                 | move along the latitude         |
+| Shift + ← / →                             |                 | rotate                          |
+| Click a piece or card                     | select          | select only it / deselect       |
+| Ctrl (⌘) or Shift + click a piece or card | select          | add to / remove from selection  |
+| Esc / Delete                              |                 | deselect / remove the selection |
+
+When several shapes are selected they act as one new shape: every key press applies the same rotation to all of them,
+so they keep their arrangement. Latitude moves and rotation use the group's center (the arc-length weighted center of
+all the selected outlines, the same rule as for a single shape). The mouse wheel changes every selected radial distance
+by the same amount and stops when any piece reaches `0.5` or `2`.
 
 Each card in the shape list has a chevron that expands it to show the shape's vertices in time order: the clock time
 (yellow dot for day, blue for night) and θ / φ in degrees, with the radians from the JSON underneath.

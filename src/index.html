@@ -35,7 +35,13 @@
                     </button>
                 </div>
 
-                <ul class="shape-list" id="shape-list" role="listbox" aria-label="Shape list"></ul>
+                <ul
+                    class="shape-list"
+                    id="shape-list"
+                    role="listbox"
+                    aria-label="Shape list"
+                    aria-multiselectable="true"
+                ></ul>
 
                 <div class="empty-state" id="empty-state" hidden>
                     <div class="empty-state__glyph" aria-hidden="true"></div>
@@ -71,40 +77,44 @@
                     <span class="legend__item legend__item--night">night</span>
                 </div>
 
-                <section class="hud hud--bottom-left readout" id="readout" hidden>
-                    <p class="readout__label">Selected</p>
-                    <p class="readout__name" id="readout-name"></p>
-                    <dl class="readout__grid">
-                        <dt>θ</dt>
-                        <dd id="readout-theta">0°</dd>
-                        <dt>φ</dt>
-                        <dd id="readout-phi">0°</dd>
-                        <dt>r</dt>
-                        <dd id="readout-r">1.00</dd>
-                    </dl>
-                    <progress
-                        class="readout__meter"
-                        id="readout-meter"
-                        max="1.5"
-                        value="0.5"
-                        aria-label="Radial distance"
-                    ></progress>
-                </section>
+                <div class="hud hud--bottom">
+                    <section class="readout" id="readout" hidden>
+                        <p class="readout__label" id="readout-label">Selected</p>
+                        <p class="readout__name" id="readout-name"></p>
+                        <dl class="readout__grid">
+                            <dt>θ</dt>
+                            <dd id="readout-theta">0°</dd>
+                            <dt>φ</dt>
+                            <dd id="readout-phi">0°</dd>
+                            <dt>r</dt>
+                            <dd id="readout-r">1.00</dd>
+                        </dl>
+                        <progress
+                            class="readout__meter"
+                            id="readout-meter"
+                            max="1.5"
+                            value="0.5"
+                            aria-label="Radial distance"
+                        ></progress>
+                    </section>
 
-                <div class="hud hud--bottom hints">
-                    <ul class="hints__group hints__group--scene">
-                        <li><kbd>Drag</kbd> orbit</li>
-                        <li><kbd>Wheel</kbd> zoom</li>
-                        <li><kbd>Click</kbd> a piece to select</li>
-                    </ul>
-                    <ul class="hints__group hints__group--piece">
-                        <li><kbd>←</kbd><kbd>→</kbd> longitude</li>
-                        <li><kbd>↑</kbd><kbd>↓</kbd> latitude</li>
-                        <li><kbd>Shift</kbd>+<kbd>←</kbd><kbd>→</kbd> rotate</li>
-                        <li><kbd>Wheel</kbd> radius</li>
-                        <li><kbd>Drag</kbd> orbit</li>
-                        <li><kbd>Esc</kbd> deselect</li>
-                    </ul>
+                    <div class="hints">
+                        <ul class="hints__group hints__group--scene">
+                            <li><kbd>Drag</kbd> orbit</li>
+                            <li><kbd>Wheel</kbd> zoom</li>
+                            <li><kbd>Click</kbd> a piece to select</li>
+                            <li><kbd>Ctrl</kbd>+<kbd>Click</kbd> multi-select</li>
+                        </ul>
+                        <ul class="hints__group hints__group--piece">
+                            <li><kbd>←</kbd><kbd>→</kbd> longitude</li>
+                            <li><kbd>↑</kbd><kbd>↓</kbd> latitude</li>
+                            <li><kbd>Shift</kbd>+<kbd>←</kbd><kbd>→</kbd> rotate</li>
+                            <li><kbd>Wheel</kbd> radius</li>
+                            <li><kbd>Drag</kbd> orbit</li>
+                            <li><kbd>Ctrl</kbd>+<kbd>Click</kbd> add / remove</li>
+                            <li><kbd>Esc</kbd> deselect</li>
+                        </ul>
+                    </div>
                 </div>
 
                 <div class="gpu-error" id="gpu-error" hidden>

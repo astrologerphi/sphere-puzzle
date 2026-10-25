@@ -25,7 +25,7 @@ const mixColor = (a: RGBA, b: RGBA, t: number): RGBA => [
 ];
 
 export interface SceneOptions {
-    selectedId: number | null;
+    selectedIds: ReadonlySet<number>;
     showCenterRays: boolean;
     loopHours: number;
     seconds: number;
@@ -67,10 +67,10 @@ export function buildScene(
     sprites.push([0, 0, 0], px(8), [0.9, 0.95, 1, 1], SpriteKind.Dot, 0, 1.2);
 
     for (const piece of pieces) {
-        const selected = piece.id === o.selectedId;
+        const selected = o.selectedIds.has(piece.id);
         const radius = piece.r * LINE_LIFT;
         const world = piece.path.map(p => piece.toWorld(p, radius));
-        // one continuous curve per outline; the selected piece is just brighter
+        // one continuous curve per outline; selected pieces are just brighter
         const shade = selected ? 1 : 0.68;
         curves.pushLoop(world, px(2), i => {
             const c = piece.pathDay[i] ? DAY : NIGHT;
