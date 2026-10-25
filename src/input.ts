@@ -1,6 +1,6 @@
 import { DEG, vec3, type Vec3 } from './core/math.js';
 import type { ShapeEditor } from './puzzle/editor.js';
-import type { Piece } from './puzzle/piece.js';
+import { groupCenter, type Piece } from './puzzle/piece.js';
 import type { PuzzleStore } from './puzzle/store.js';
 import type { OrbitCamera } from './render/camera.js';
 import { FILL_LIFT } from './render/renderer.js';
@@ -48,25 +48,27 @@ export class InputController {
         window.addEventListener('keyup', e => this.held.delete(e.key));
         window.addEventListener('blur', () => this.held.clear());
         store.subscribe(() => {
-            if (!store.selected) this.held.clear();
+            if (store.selectedIds.size === 0) this.held.clear();
         });
     }
 
     /** Continuous movement while arrow keys are held down. */
     update(dt: number, now: number): void {
-        const piece = this.store.selected;
-        if (!piece) return;
+        if (this.held.size === 0) return;
+        const pieces = this.store.selection;
+        if (pieces.length === 0) return;
         for (const key of this.held.values()) {
             if (now - key.since < HOLD_DELAY_MS) continue;
             const speed = key.action === 'spin' ? SPIN_SPEED : MOVE_SPEED;
-            this.apply(piece, key.action, key.sign * speed * dt);
+            this.apply(pieces, key.action, key.sign * speed * dt);
         }
     }
 
-    private apply(piece: Piece, action: Action, angle: number): void {
-        if (action === 'longitude') this.store.moveLongitude(piece, angle);
-        else if (action === 'latitude') this.store.moveLatitude(piece, angle);
-        else this.store.spin(piece, angle);
+    /** All selected pieces are moved as one shape. */
+    private apply(pieces: readonly Piece[], action: Action, angle: number): void {
+        if (action === 'longitude') this.store.moveLongitude(pieces, angle);
+        else if (action === 'latitude') this.store.moveLatitude(pieces, angle);
+        else this.store.spin(pieces, angle);
     }
 
     private isTypingTarget(target: EventTarget | null): boolean {
@@ -75,17 +77,18 @@ export class InputController {
 
     private onKeyDown(event: KeyboardEvent): void {
         if (this.editor.isDialogOpen || this.isTypingTarget(event.target)) return;
-        const piece = this.store.selected;
+        const pieces = this.store.selection;
+        if (pieces.length === 0) return;
 
-        if (event.key === 'Escape' && piece) {
+        if (event.key === 'Escape') {
             this.store.select(null);
             return;
         }
-        if (event.key === 'Delete' && piece) {
-            this.editor.remove(piece);
+        if (event.key === 'Delete') {
+            this.editor.remove(pieces);
             return;
         }
-        if (!piece || !ARROWS.has(event.key)) return;
+        if (!ARROWS.has(event.key)) return;
 
         event.preventDefault();
         if (event.repeat) return;
@@ -100,22 +103,22 @@ export class InputController {
             sign = positive ? -1 : 1;
         } else if (horizontal) {
             action = 'longitude';
-            sign = (positive ? 1 : -1) * this.screenRightSign(piece);
+            sign = (positive ? 1 : -1) * this.screenRightSign(pieces);
         } else {
             action = 'latitude';
             sign = positive ? 1 : -1;
         }
 
-        this.apply(piece, action, sign * (action === 'spin' ? TAP_SPIN : TAP_MOVE));
+        this.apply(pieces, action, sign * (action === 'spin' ? TAP_SPIN : TAP_MOVE));
         this.held.set(event.key, { action, sign, since: performance.now() });
     }
 
     /**
-     * +1 when increasing longitude moves the piece rightward on screen, -1 otherwise.
+     * +1 when increasing longitude moves the selection rightward on screen, -1 otherwise.
      * Decided once per key press so holding a key never reverses direction at the limb.
      */
-    private screenRightSign(piece: Piece): number {
-        const center = piece.worldCenter();
+    private screenRightSign(pieces: readonly Piece[]): number {
+        const center = groupCenter(pieces);
         const eastward = vec3.cross([0, 1, 0], center);
         return vec3.dot(eastward, this.camera.right) < -1e-3 ? -1 : 1;
     }
@@ -152,7 +155,12 @@ export class InputController {
         this.camera.endDrag(performance.now() - this.lastMoveTime);
         if (event.type === 'pointerup' && this.travel < CLICK_TOLERANCE_PX) {
             const hit = this.pick(event.clientX, event.clientY);
-            this.store.select(hit ? hit.id : null);
+            // Ctrl / Cmd / Shift + click adds or removes a piece; a modified click on empty space keeps the selection
+            if (event.ctrlKey || event.metaKey || event.shiftKey) {
+                if (hit) this.store.toggleMember(hit.id);
+            } else {
+                this.store.select(hit ? hit.id : null);
+            }
         }
     }
 
@@ -160,8 +168,8 @@ export class InputController {
         event.preventDefault();
         const scale = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 120 : 1;
         const delta = event.deltaY * scale;
-        const piece = this.store.selected;
-        if (piece) this.store.setRadius(piece, piece.targetR - delta * RADIUS_PER_WHEEL_PX);
+        const pieces = this.store.selection;
+        if (pieces.length > 0) this.store.shiftRadius(pieces, -delta * RADIUS_PER_WHEEL_PX);
         else this.camera.zoom(delta);
     }
 

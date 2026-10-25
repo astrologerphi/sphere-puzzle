@@ -75,7 +75,7 @@ export class ShapeEditor {
     }
 
     private renderList(): void {
-        const { pieces, selectedId } = this.store;
+        const { pieces } = this.store;
         const alive = new Set(pieces.map(p => p.id));
 
         for (const [id, card] of this.cards) {
@@ -92,7 +92,7 @@ export class ShapeEditor {
                 this.cards.set(piece.id, card);
             }
             if (this.list.children[index] !== card) this.list.insertBefore(card, this.list.children[index] ?? null);
-            const selected = piece.id === selectedId;
+            const selected = this.store.isSelected(piece.id);
             const wasSelected = card.classList.contains('is-selected');
             card.classList.toggle('is-selected', selected);
             card.setAttribute('aria-selected', String(selected));
@@ -139,20 +139,25 @@ export class ShapeEditor {
             expand.title = label;
         });
 
-        card.addEventListener('click', () => this.store.toggleSelect(piece.id));
+        // Ctrl / Cmd / Shift adds the shape to (or takes it out of) a multi-selection
+        const choose = (event: MouseEvent | KeyboardEvent) => {
+            if (event.ctrlKey || event.metaKey || event.shiftKey) this.store.toggleMember(piece.id);
+            else this.store.toggleSelect(piece.id);
+        };
+        card.addEventListener('click', choose);
         card.addEventListener('keydown', event => {
             // Enter / Space on the card's own buttons activate those buttons instead
             if (event.target !== card) return;
             if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault();
-                this.store.toggleSelect(piece.id);
+                choose(event);
             }
         });
         const remove = card.querySelector<HTMLButtonElement>('.shape-card__remove')!;
         remove.setAttribute('aria-label', `Remove ${piece.name}`);
         remove.addEventListener('click', event => {
             event.stopPropagation();
-            this.remove(piece);
+            this.remove([piece]);
         });
         return card;
     }
@@ -179,20 +184,31 @@ export class ShapeEditor {
         });
     }
 
-    /** Remove a piece, letting its card play the leave animation first. */
-    remove(piece: Piece): void {
-        const card = this.cards.get(piece.id);
-        if (!card) return;
-        if (card.classList.contains('is-leaving')) return;
-        card.classList.add('is-leaving');
+    /** Remove pieces, letting their cards play the leave animation first. */
+    remove(pieces: readonly Piece[]): void {
+        const leaving = pieces.filter(piece => {
+            const card = this.cards.get(piece.id);
+            return card !== undefined && !card.classList.contains('is-leaving');
+        });
+        if (leaving.length === 0) return;
+        let pending = leaving.length;
         let finished = false;
         const done = () => {
             if (finished) return;
             finished = true;
-            this.store.remove(piece.id);
-            this.notify(`Removed ${piece.name}`);
+            this.store.remove(leaving.map(piece => piece.id));
+            this.notify(leaving.length === 1 ? `Removed ${leaving[0]!.name}` : `Removed ${leaving.length} shapes`);
         };
-        card.addEventListener('animationend', done, { once: true });
+        for (const piece of leaving) {
+            const card = this.cards.get(piece.id)!;
+            card.classList.add('is-leaving');
+            const onEnd = (event: AnimationEvent) => {
+                if (event.target !== card) return;
+                card.removeEventListener('animationend', onEnd);
+                if (--pending === 0) done();
+            };
+            card.addEventListener('animationend', onEnd);
+        }
         // fallback when animations are disabled (prefers-reduced-motion)
         window.setTimeout(done, 450);
     }

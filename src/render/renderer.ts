@@ -39,7 +39,7 @@ interface PieceResources {
 export interface FrameState {
     camera: OrbitCamera;
     pieces: readonly Piece[];
-    selectedId: number | null;
+    selectedIds: ReadonlySet<number>;
     lines: LineBatch;
     curves: CurveBatch;
     sprites: SpriteBatch;
@@ -426,7 +426,7 @@ export class Renderer {
             const u = this.pieceData;
             u.set(mat4.fromQuatScale(piece.orientation, piece.r * FILL_LIFT), 0);
             u.set([...piece.center, piece.path.length], 16);
-            u.set([...piece.basisU, piece.id === frame.selectedId ? 1 : 0], 20);
+            u.set([...piece.basisU, frame.selectedIds.has(piece.id) ? 1 : 0], 20);
             u.set([...piece.basisV, 0], 24);
             u.set([piece.r, 0, 0, 0], 28);
             queue.writeBuffer(res.uniform, 0, u);

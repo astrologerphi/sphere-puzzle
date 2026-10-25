@@ -1,7 +1,7 @@
 import { DEG, cartesianToSpherical } from './core/math.js';
 import { InputController } from './input.js';
 import { ShapeEditor, byId, type Notify } from './puzzle/editor.js';
-import { DAY_LENGTH } from './puzzle/piece.js';
+import { DAY_LENGTH, groupCenter } from './puzzle/piece.js';
 import { setupPersistence } from './puzzle/persistence.js';
 
 import { LOOP_DURATION } from './puzzle/shapes.js';
@@ -33,6 +33,7 @@ function createToast(): Notify {
 function bindHud(store: PuzzleStore): void {
     const panel = byId<HTMLElement>('sphere-panel');
     const readout = byId<HTMLElement>('readout');
+    const label = byId<HTMLElement>('readout-label');
     const name = byId<HTMLElement>('readout-name');
     const theta = byId<HTMLElement>('readout-theta');
     const phi = byId<HTMLElement>('readout-phi');
@@ -41,16 +42,23 @@ function bindHud(store: PuzzleStore): void {
     meter.max = MAX_R - MIN_R;
 
     const refresh = () => {
-        const piece = store.selected;
-        panel.dataset.mode = piece ? 'piece' : 'scene';
-        readout.hidden = !piece;
-        if (!piece) return;
-        const s = cartesianToSpherical(piece.worldCenter());
-        name.textContent = piece.name;
+        const pieces = store.selection;
+        panel.dataset.mode = pieces.length > 0 ? 'piece' : 'scene';
+        readout.hidden = pieces.length === 0;
+        if (pieces.length === 0) return;
+        // a multi-selection is reported as one shape: its combined center and its range of radii
+        const s = cartesianToSpherical(groupCenter(pieces));
+        const names = pieces.map(p => p.name).join(', ');
+        const radii = pieces.map(p => p.targetR);
+        const low = Math.min(...radii);
+        const high = Math.max(...radii);
+        label.textContent = pieces.length === 1 ? 'Selected' : `Group of ${pieces.length}`;
+        name.textContent = names;
+        name.title = names;
         theta.textContent = `${(s.theta / DEG).toFixed(1)}°`;
         phi.textContent = `${(s.phi / DEG).toFixed(1)}°`;
-        radius.textContent = piece.targetR.toFixed(2);
-        meter.value = piece.targetR - MIN_R;
+        radius.textContent = high - low < 0.005 ? low.toFixed(2) : `${low.toFixed(2)}–${high.toFixed(2)}`;
+        meter.value = radii.reduce((sum, r) => sum + r, 0) / radii.length - MIN_R;
     };
     store.subscribe(refresh);
     refresh();
@@ -137,7 +145,7 @@ async function main(): Promise<void> {
         for (const piece of store.pieces) piece.animate(dt);
 
         buildScene(store.pieces, lines, curves, sprites, {
-            selectedId: store.selectedId,
+            selectedIds: store.selectedIds,
             showCenterRays: store.showCenterRays,
             loopHours,
             seconds,
@@ -146,7 +154,7 @@ async function main(): Promise<void> {
         renderer.render({
             camera,
             pieces: store.pieces,
-            selectedId: store.selectedId,
+            selectedIds: store.selectedIds,
             lines,
             curves,
             sprites,
