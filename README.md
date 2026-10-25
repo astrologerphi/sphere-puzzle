@@ -35,6 +35,9 @@ The puzzle is saved to `localStorage` (key `sphere-puzzle:v1`) whenever it chang
 | Click a piece or card | select          | select / deselect          |
 | Esc / Delete          |                 | deselect / remove          |
 
+Each card in the shape list has a chevron that expands it to show the shape's vertices in time order: the clock time
+(yellow dot for day, blue for night) and θ / φ in degrees, with the radians from the JSON underneath.
+
 ## Layout
 
 - `src/index.html`: all markup

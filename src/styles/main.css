@@ -306,7 +306,7 @@ textarea {
     display: grid;
     grid-template-columns: 64px 1fr auto;
     align-items: center;
-    gap: 14px;
+    gap: 0 14px;
     padding: 10px 12px 10px 10px;
     border: 1px solid var(--line);
     border-radius: var(--radius-m);
@@ -340,8 +340,8 @@ textarea {
     content: '';
     position: absolute;
     left: -1px;
-    top: 18%;
-    bottom: 18%;
+    top: 16px;
+    height: 56px;
     width: 3px;
     border-radius: 0 3px 3px 0;
     background: var(--jade);
@@ -454,6 +454,187 @@ textarea {
     color: var(--coral);
     border-color: rgba(255, 97, 120, 0.4);
     background: rgba(255, 97, 120, 0.1);
+}
+
+.shape-card__actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.shape-card__expand {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 50%;
+    background: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition:
+        color 0.2s,
+        background-color 0.2s,
+        border-color 0.2s;
+}
+
+.shape-card__expand svg {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 0.3s var(--ease-out);
+}
+
+.shape-card__expand:hover {
+    color: var(--text);
+    border-color: var(--line-strong);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.shape-card__expand:focus-visible,
+.shape-card__remove:focus-visible {
+    outline: 2px solid var(--jade);
+    outline-offset: 1px;
+}
+
+.shape-card.is-expanded .shape-card__expand svg {
+    transform: rotate(180deg);
+}
+
+/* collapsible vertex details: animates its height via a 0fr -> 1fr grid row */
+.shape-card__details {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-rows: 0fr;
+    cursor: default;
+    user-select: text;
+    transition: grid-template-rows 0.3s var(--ease-out);
+}
+
+.shape-card.is-expanded .shape-card__details {
+    grid-template-rows: 1fr;
+}
+
+.shape-card__details-inner {
+    min-height: 0;
+    overflow: hidden;
+}
+
+.vertex-table {
+    width: 100%;
+    margin-top: 10px;
+    border-collapse: collapse;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+    border-top: 1px solid var(--line);
+}
+
+.vertex-table th {
+    padding: 8px 6px 6px;
+    color: var(--text-faint);
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 500;
+    text-align: right;
+}
+
+.vertex-table th:nth-child(-n + 2) {
+    text-align: left;
+}
+
+.vertex-row td {
+    padding: 4px 6px;
+    line-height: 1.3;
+    border-top: 1px solid var(--line);
+    color: var(--text);
+    vertical-align: top;
+    white-space: nowrap;
+}
+
+.vertex-row__index {
+    width: 1%;
+    color: var(--text-faint) !important;
+}
+
+.vertex-row__time {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.vertex-row__dot {
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--day);
+}
+
+.vertex-row[data-phase='night'] .vertex-row__dot {
+    background: var(--night);
+}
+
+.vertex-row__angle {
+    text-align: right;
+}
+
+.vertex-row__deg,
+.vertex-row__rad {
+    display: block;
+}
+
+.vertex-row__rad {
+    color: var(--text-faint);
+    font-size: 10px;
+}
+
+.vertex-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+    margin: 0;
+    padding: 8px 6px 2px;
+    border-top: 1px solid var(--line);
+    color: var(--text-faint);
+    font-size: 10.5px;
+}
+
+.vertex-legend__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.vertex-legend__item::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--day);
+}
+
+.vertex-legend__item--night::before {
+    background: var(--night);
+}
+
+.vertex-legend__note {
+    margin-left: auto;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
 }
 
 /* empty state ------------------------------------------------------------ */
