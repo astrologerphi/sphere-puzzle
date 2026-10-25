@@ -1,4 +1,5 @@
-import type { Piece } from './piece.js';
+import { DEG } from '../core/math.js';
+import { DAY_LENGTH, type Piece } from './piece.js';
 import type { Shape } from './shapes.js';
 import type { ChangeKind, PuzzleStore } from './store.js';
 import { parseShapeJson } from './validate.js';
@@ -25,6 +26,7 @@ export function byId<T extends HTMLElement>(id: string): T {
 export class ShapeEditor {
     private readonly list = byId<HTMLUListElement>('shape-list');
     private readonly template = byId<HTMLTemplateElement>('shape-item-template');
+    private readonly rowTemplate = byId<HTMLTemplateElement>('vertex-row-template');
     private readonly emptyState = byId<HTMLElement>('empty-state');
     private readonly count = byId<HTMLElement>('shape-count');
     private readonly dialog = byId<HTMLDialogElement>('add-dialog');
@@ -118,9 +120,29 @@ export class ShapeEditor {
         card.querySelector('.shape-card__name')!.textContent = piece.name;
         card.querySelector('[data-field="vertices"]')!.textContent = `${piece.vertices.length} vertices`;
         drawPreview(card.querySelector<HTMLCanvasElement>('.shape-card__preview')!, piece);
+        this.fillVertexTable(card.querySelector('tbody')!, piece);
+
+        const details = card.querySelector<HTMLElement>('.shape-card__details')!;
+        details.id = `shape-details-${piece.id}`;
+        // reading the table should not toggle the selection
+        details.addEventListener('click', event => event.stopPropagation());
+        const expand = card.querySelector<HTMLButtonElement>('.shape-card__expand')!;
+        expand.setAttribute('aria-controls', details.id);
+        expand.addEventListener('click', event => {
+            event.stopPropagation();
+            const expanded = !card.classList.contains('is-expanded');
+            card.classList.toggle('is-expanded', expanded);
+            details.inert = !expanded;
+            expand.setAttribute('aria-expanded', String(expanded));
+            const label = expanded ? 'Hide vertices' : 'Show vertices';
+            expand.setAttribute('aria-label', label);
+            expand.title = label;
+        });
 
         card.addEventListener('click', () => this.store.toggleSelect(piece.id));
         card.addEventListener('keydown', event => {
+            // Enter / Space on the card's own buttons activate those buttons instead
+            if (event.target !== card) return;
             if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault();
                 this.store.toggleSelect(piece.id);
@@ -133,6 +155,28 @@ export class ShapeEditor {
             this.remove(piece);
         });
         return card;
+    }
+
+    /** One row per vertex in time order, as defined in the shape JSON. */
+    private fillVertexTable(body: HTMLTableSectionElement, piece: Piece): void {
+        const times = Object.keys(piece.shape)
+            .filter(key => key !== 'r')
+            .map(Number)
+            .sort((a, b) => a - b);
+        times.forEach((time, index) => {
+            const vertex = piece.shape[time]!;
+            const row = (this.rowTemplate.content.cloneNode(true) as DocumentFragment).firstElementChild as HTMLElement;
+            const field = (name: string) => row.querySelector<HTMLElement>(`[data-field="${name}"]`)!;
+            row.dataset.phase = time < DAY_LENGTH / 2 ? 'day' : 'night';
+            row.querySelector('.vertex-row__index')!.textContent = String(index + 1);
+            field('clock').textContent = formatClock(time);
+            row.querySelector<HTMLElement>('.vertex-row__time')!.title = `time ${time}`;
+            field('theta').textContent = formatDegrees(vertex.theta);
+            field('theta-rad').textContent = formatRadians(vertex.theta);
+            field('phi').textContent = formatDegrees(vertex.phi);
+            field('phi-rad').textContent = formatRadians(vertex.phi);
+            body.append(row);
+        });
     }
 
     /** Remove a piece, letting its card play the leave animation first. */
@@ -181,6 +225,20 @@ export class ShapeEditor {
         this.notify(`Added ${piece.name}${notes}`, result.notes.length > 0 ? 'warn' : 'info');
     }
 }
+
+/** Shape time (hours, possibly fractional) as a 24 h clock, e.g. 15.08 -> "15:05". */
+function formatClock(hours: number): string {
+    const minutes = Math.round(hours * 60);
+    return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+}
+
+const formatSigned = (value: number, digits: number): string => {
+    const text = Math.abs(value).toFixed(digits);
+    return Number(text) === 0 ? text : `${value < 0 ? '−' : ''}${text}`;
+};
+
+const formatDegrees = (radians: number): string => `${formatSigned(radians / DEG, 1)}°`;
+const formatRadians = (radians: number): string => `${formatSigned(radians, 4)} rad`;
 
 /** Mini stereographic outline of the piece, colored with the theme's CSS custom properties. */
 function drawPreview(canvas: HTMLCanvasElement, piece: Piece): void {

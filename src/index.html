@@ -132,10 +132,63 @@
                         <span class="chip" data-field="radius"></span>
                     </span>
                 </div>
-                <button class="shape-card__remove" type="button" aria-label="Remove shape" title="Remove shape">
-                    <span aria-hidden="true">×</span>
-                </button>
+                <div class="shape-card__actions">
+                    <button class="shape-card__remove" type="button" aria-label="Remove shape" title="Remove shape">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                    <button
+                        class="shape-card__expand"
+                        type="button"
+                        aria-expanded="false"
+                        aria-label="Show vertices"
+                        title="Show vertices"
+                    >
+                        <svg viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M4 6l4 4 4-4" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="shape-card__details" inert>
+                    <div class="shape-card__details-inner">
+                        <table class="vertex-table">
+                            <caption class="visually-hidden">
+                                Vertices in time order
+                            </caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">#</th>
+                                    <th scope="col">time</th>
+                                    <th scope="col">θ polar</th>
+                                    <th scope="col">φ azimuth</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                        <p class="vertex-legend">
+                            <span class="vertex-legend__item vertex-legend__item--day">day</span>
+                            <span class="vertex-legend__item vertex-legend__item--night">night</span>
+                            <span class="vertex-legend__note">degrees · radians below</span>
+                        </p>
+                    </div>
+                </div>
             </li>
+        </template>
+
+        <template id="vertex-row-template">
+            <tr class="vertex-row">
+                <td class="vertex-row__index"></td>
+                <td class="vertex-row__time">
+                    <span class="vertex-row__dot" aria-hidden="true"></span><span data-field="clock"></span>
+                </td>
+                <td class="vertex-row__angle">
+                    <span class="vertex-row__deg" data-field="theta"></span
+                    ><span class="vertex-row__rad" data-field="theta-rad"></span>
+                </td>
+                <td class="vertex-row__angle">
+                    <span class="vertex-row__deg" data-field="phi"></span
+                    ><span class="vertex-row__rad" data-field="phi-rad"></span>
+                </td>
+            </tr>
         </template>
 
         <dialog class="dialog" id="add-dialog" aria-labelledby="add-dialog-title">
