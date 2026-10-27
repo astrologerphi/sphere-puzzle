@@ -616,3 +616,16 @@ export const DEFAULT_SHAPES: Record<string, Shape> = {
     },
 
 };
+
+for (const shapeKey in DEFAULT_SHAPES) {
+    const shape = DEFAULT_SHAPES[shapeKey];
+    for (const vertexKey in shape) {
+        if (vertexKey === "r") continue;
+        // @ts-ignore
+        const vertex: Vertex = shape[vertexKey];
+        const _theta = vertex.theta;
+        const _phi = vertex.phi;
+        vertex.theta = - Math.PI / 2 - _theta;
+        vertex.phi = Math.PI / 2 - _phi;
+    }
+}
