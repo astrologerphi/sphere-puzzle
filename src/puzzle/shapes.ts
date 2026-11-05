@@ -34,9 +34,9 @@ export type Vertex = { theta: number; phi: number };
 export type CenterRay = { theta: number; phi: number };
 export type Shape = Record<number, Vertex> & { r: number };
 
-export const LOOP_DURATION = 3000;
+export const LOOP_DURATION = 10000;
 export const DEFAULT_SHAPES: Record<string, Shape> = {
-    "default, Divine Tower of Liurnia, Divine Tower of West Altus": {
+    "DToL, DToWA": {
         r: 1,
         "0": {
             theta: -0.174533,
@@ -141,7 +141,7 @@ export const DEFAULT_SHAPES: Record<string, Shape> = {
         }
 
     },
-    "Divine Tower of Caelid": {
+    "DToC": {
         r: 1,
         "0": {
             theta: -0.174533,
@@ -172,7 +172,7 @@ export const DEFAULT_SHAPES: Record<string, Shape> = {
             phi: 0.872665
         }
     },
-    "Leyndell, Royal Capital": {
+    "LRC": {
         r: 1,
         "0": {
             theta: -0.506145,
@@ -234,7 +234,7 @@ export const DEFAULT_SHAPES: Record<string, Shape> = {
             phi: 0.872665
         }
     },
-    "Isolated Divine Tower": {
+    "IDT": {
         r: 1,
         "0": {
             theta: -0.349066,
@@ -296,7 +296,7 @@ export const DEFAULT_SHAPES: Record<string, Shape> = {
             phi: 2.792527
         }
     },
-    "Stormveil Castle": {
+    "StvC": {
         r: 1,
         "0": {
             theta: -0.698132,
@@ -327,7 +327,7 @@ export const DEFAULT_SHAPES: Record<string, Shape> = {
             phi: 2.792527
         }
     },
-    "Chapel of Anticipation": {
+    "CoA": {
         r: 1,
         "0": {
             theta: -0.610865,
@@ -358,7 +358,7 @@ export const DEFAULT_SHAPES: Record<string, Shape> = {
             phi: 1.396263
         }
     },
-    "Academy of Raya Lucaria": {
+    "AoRL": {
         r: 1,
         "0": {
             theta: -0.401426,
@@ -389,7 +389,7 @@ export const DEFAULT_SHAPES: Record<string, Shape> = {
             phi: 1.623156
         }
     },
-    "Miuqella's Haligtree": {
+    "MTree": {
         r: 1,
         "0": {
             theta: -0.174533,
@@ -420,7 +420,7 @@ export const DEFAULT_SHAPES: Record<string, Shape> = {
             phi: 1.745329
         }
     },
-    "Volcano Manor": {
+    "VM": {
         r: 1,
         "0": {
             theta: -0.925025,
@@ -451,7 +451,7 @@ export const DEFAULT_SHAPES: Record<string, Shape> = {
             phi: -1.22173
         }
     },
-    "Shadow Keep (DLC)": {
+    "Shadow Keep": {
         r: 1,
         "0": {
             theta: -0.737103,
@@ -482,7 +482,7 @@ export const DEFAULT_SHAPES: Record<string, Shape> = {
             phi: 2.792527
         }
     },
-    "Gaols (DLC)": {
+    "Gaols": {
         r: 1,
         "0": {
             theta: -0.174533,
